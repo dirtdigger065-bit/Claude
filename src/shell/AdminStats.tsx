@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Radio, Clock, AlertTriangle, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Radio, Clock, AlertTriangle, CheckCircle2, ArrowRight, TrendingUp } from 'lucide-react';
 import type { TimeEntry, User } from '../types';
-import { normalizeStatus, isNonJobEntry, getEntryLabel, getPayPeriodStart, getPayPeriodDates } from '../types';
+import { normalizeStatus, isNonJobEntry, getEntryLabel, getPayPeriodStart, getPayPeriodDates, getDayName, formatDateShort } from '../types';
 import { getAllTimeEntries, today } from '../utils/supabase';
+import { WeeklyHoursBar } from './charts/WeeklyHoursBar';
+import { ApprovalMeter } from './charts/ApprovalMeter';
 
 interface Props {
   users: User[];
@@ -69,8 +71,9 @@ export const AdminStats: React.FC<Props> = ({ users }) => {
       .sort((a, b) => b.liveHours - a.liveHours);
   }, [entries, now]);
 
-  const { hoursToday, hoursWeek, overtimeHours, overtimeEmployees } = useMemo(() => {
+  const { hoursToday, hoursWeek, overtimeHours, overtimeEmployees, dayTotals } = useMemo(() => {
     const perUserWeek: Record<string, number> = {};
+    const perDay: Record<string, number> = Object.fromEntries(weekDates.map(d => [d, 0]));
     let today_ = 0;
     let week = 0;
 
@@ -80,6 +83,7 @@ export const AdminStats: React.FC<Props> = ({ users }) => {
       if (e.date === todayStr) today_ += hrs;
       if (weekDates.includes(e.date)) {
         week += hrs;
+        perDay[e.date] = (perDay[e.date] || 0) + hrs;
         const dow = new Date(e.date + 'T12:00:00').getDay();
         if (dow !== 0) perUserWeek[e.user_id] = (perUserWeek[e.user_id] || 0) + hrs;
       }
@@ -89,6 +93,7 @@ export const AdminStats: React.FC<Props> = ({ users }) => {
       if (entry.date === todayStr) today_ += liveHours;
       if (weekDates.includes(entry.date)) {
         week += liveHours;
+        perDay[entry.date] = (perDay[entry.date] || 0) + liveHours;
         const dow = new Date(entry.date + 'T12:00:00').getDay();
         if (dow !== 0) perUserWeek[entry.user_id] = (perUserWeek[entry.user_id] || 0) + liveHours;
       }
@@ -99,17 +104,21 @@ export const AdminStats: React.FC<Props> = ({ users }) => {
     for (const hrs of Object.values(perUserWeek)) {
       if (hrs > 40) { ot += hrs - 40; otEmployees++; }
     }
-    return { hoursToday: today_, hoursWeek: week, overtimeHours: ot, overtimeEmployees: otEmployees };
+    const dayTotals = weekDates.map(d => ({ label: getDayName(d), date: d, hours: perDay[d] || 0 }));
+    return { hoursToday: today_, hoursWeek: week, overtimeHours: ot, overtimeEmployees: otEmployees, dayTotals };
   }, [entries, liveSessions, todayStr, weekDates]);
 
+  const weekEntries = useMemo(() => entries.filter(e => !e.is_active && weekDates.includes(e.date)), [entries, weekDates]);
   const pendingApprovals = useMemo(
-    () => entries.filter(e => !e.is_active && ['pending', 'foreman-approved'].includes(normalizeStatus(e.status))).length,
-    [entries]
+    () => weekEntries.filter(e => ['pending', 'foreman-approved'].includes(normalizeStatus(e.status))).length,
+    [weekEntries]
   );
+  const approvedThisWeek = useMemo(() => weekEntries.filter(e => normalizeStatus(e.status) === 'admin-approved').length, [weekEntries]);
+  const approvalPct = weekEntries.length > 0 ? Math.round((approvedThisWeek / weekEntries.length) * 100) : 100;
 
   if (loading) {
     return (
-      <div className="w-full max-w-4xl mx-auto mb-6">
+      <div className="w-full max-w-5xl mx-auto mb-6">
         <div className="flex items-center justify-center py-6 text-base-content/40 text-sm gap-2">
           <span className="loading loading-spinner loading-sm" /> Loading live stats…
         </div>
@@ -118,22 +127,50 @@ export const AdminStats: React.FC<Props> = ({ users }) => {
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto mb-6">
+    <div className="w-full max-w-5xl mx-auto mb-6">
+      {/* KPI row — one hero card + neutral cards, per stat-tile convention */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+        <div className="card bg-primary text-primary-content p-3 shadow-sm">
+          <div className="text-[11px] opacity-80 flex items-center gap-1 mb-1"><Clock size={13} /> Hours This Week</div>
+          <div className="text-2xl font-black">{formatDuration(hoursWeek)}</div>
+          <div className="text-[11px] opacity-70 mt-0.5">{formatDuration(hoursToday)} today</div>
+        </div>
         <StatTile
-          icon={<Radio size={13} className={liveSessions.length > 0 ? 'text-success animate-pulse' : 'text-base-content/40'} />}
+          icon={<Radio size={13} className={liveSessions.length > 0 ? 'text-success' : 'text-base-content/40'} />}
           label="Clocked In Now"
           value={String(liveSessions.length)}
           tone={liveSessions.length > 0 ? 'success' : 'default'}
+          pulse={liveSessions.length > 0}
         />
-        <StatTile icon={<Clock size={13} />} label="Hours Today" value={formatDuration(hoursToday)} />
-        <StatTile icon={<Clock size={13} />} label="Hours This Week" value={formatDuration(hoursWeek)} />
         <StatTile
           icon={<AlertTriangle size={13} className={overtimeHours > 0 ? 'text-error' : 'text-base-content/40'} />}
           label="Overtime This Week"
-          value={overtimeHours > 0 ? `${formatDuration(overtimeHours)} · ${overtimeEmployees}` : 'None'}
+          value={overtimeHours > 0 ? formatDuration(overtimeHours) : 'None'}
+          sub={overtimeHours > 0 ? `${overtimeEmployees} employee${overtimeEmployees === 1 ? '' : 's'}` : undefined}
           tone={overtimeHours > 0 ? 'error' : 'default'}
         />
+        <StatTile
+          icon={<CheckCircle2 size={13} className={pendingApprovals > 0 ? 'text-warning' : 'text-success'} />}
+          label="Pending Approvals"
+          value={String(pendingApprovals)}
+          tone={pendingApprovals > 0 ? 'warning' : 'success'}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
+        <div className="card bg-base-100 border border-base-300 p-3 lg:col-span-2">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-bold text-base-content/60 flex items-center gap-1">
+              <TrendingUp size={12} /> Hours Logged This Week
+            </span>
+            <span className="text-[10px] text-base-content/40">{formatDateShort(weekDates[0])}–{formatDateShort(weekDates[6])}</span>
+          </div>
+          <WeeklyHoursBar days={dayTotals} todayStr={todayStr} />
+        </div>
+        <div className="card bg-base-100 border border-base-300 p-3 flex flex-col items-center justify-center">
+          <span className="text-xs font-bold text-base-content/60 self-start mb-1">Approval Rate (this week)</span>
+          <ApprovalMeter pct={approvalPct} approvedCount={approvedThisWeek} totalCount={weekEntries.length} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -186,12 +223,14 @@ export const AdminStats: React.FC<Props> = ({ users }) => {
   );
 };
 
-const StatTile: React.FC<{ icon: React.ReactNode; label: string; value: string; tone?: 'default' | 'success' | 'error' }> = ({ icon, label, value, tone = 'default' }) => {
-  const toneClass = tone === 'success' ? 'text-success' : tone === 'error' ? 'text-error' : 'text-base-content';
+const StatTile: React.FC<{ icon: React.ReactNode; label: string; value: string; sub?: string; tone?: 'default' | 'success' | 'error' | 'warning'; pulse?: boolean }> = ({ icon, label, value, sub, tone = 'default', pulse }) => {
+  const toneClass = tone === 'success' ? 'text-success' : tone === 'error' ? 'text-error' : tone === 'warning' ? 'text-warning' : 'text-base-content';
   return (
-    <div className="card bg-base-100 border border-base-300 p-3">
+    <div className={`card bg-base-100 border border-base-300 p-3 ${pulse ? 'relative overflow-hidden' : ''}`}>
+      {pulse && <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-success animate-pulse" />}
       <div className="text-[11px] text-base-content/50 flex items-center gap-1 mb-1">{icon} {label}</div>
-      <div className={`text-lg font-black ${toneClass}`}>{value}</div>
+      <div className={`text-2xl font-black ${toneClass}`}>{value}</div>
+      {sub && <div className="text-[11px] text-base-content/40 mt-0.5">{sub}</div>}
     </div>
   );
 };

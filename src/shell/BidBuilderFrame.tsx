@@ -1,9 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { User } from '../types';
 
 interface Props {
   currentUser: User;
+}
+
+interface PendingAction {
+  type: 'new-bid';
+  mode: 'simple' | 'advanced';
 }
 
 // Bid Builder is a standalone vanilla-JS app served from /bid-builder/. It only
@@ -16,18 +21,30 @@ function toBidBuilderRole(user: User): 'admin' | 'estimator' {
 
 export const BidBuilderFrame: React.FC<Props> = ({ currentUser }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
 
-  const sendAuth = useCallback(() => {
-    iframeRef.current?.contentWindow?.postMessage(
-      {
-        source: 'rdmpe-hub',
-        type: 'rdmpe-auth',
-        user: { name: currentUser.name, role: toBidBuilderRole(currentUser) },
-      },
-      window.location.origin
-    );
+  // "New Bid — Simple/Advanced" from the Hub arrives as ?newBid=simple|advanced.
+  // Consumed exactly once, on the first auth handshake after the child confirms
+  // it's listening — otherwise a re-send (onLoad, the ready effect) would fire
+  // createNewBid() again and leave a duplicate draft bid behind.
+  const newBidParam = searchParams.get('newBid');
+  const pendingActionRef = useRef<PendingAction | null>(
+    newBidParam === 'simple' || newBidParam === 'advanced' ? { type: 'new-bid', mode: newBidParam } : null
+  );
+
+  const sendAuth = useCallback((includeAction: boolean) => {
+    const payload: Record<string, unknown> = {
+      source: 'rdmpe-hub',
+      type: 'rdmpe-auth',
+      user: { name: currentUser.name, role: toBidBuilderRole(currentUser) },
+    };
+    if (includeAction && pendingActionRef.current) {
+      payload.action = pendingActionRef.current;
+      pendingActionRef.current = null;
+    }
+    iframeRef.current?.contentWindow?.postMessage(payload, window.location.origin);
   }, [currentUser]);
 
   useEffect(() => {
@@ -37,7 +54,7 @@ export const BidBuilderFrame: React.FC<Props> = ({ currentUser }) => {
       if (!data || data.source !== 'rdmpe-bid-builder') return;
       if (data.type === 'ready') {
         setReady(true);
-        sendAuth();
+        sendAuth(true);
       } else if (data.type === 'navigate-hub') {
         navigate('/');
       }
@@ -47,7 +64,7 @@ export const BidBuilderFrame: React.FC<Props> = ({ currentUser }) => {
   }, [navigate, sendAuth]);
 
   useEffect(() => {
-    if (ready) sendAuth();
+    if (ready) sendAuth(false);
   }, [ready, sendAuth]);
 
   return (
@@ -57,7 +74,7 @@ export const BidBuilderFrame: React.FC<Props> = ({ currentUser }) => {
         title="Bid Builder"
         src="/bid-builder/index.html"
         className="flex-1 w-full border-0"
-        onLoad={sendAuth}
+        onLoad={() => sendAuth(false)}
       />
     </div>
   );

@@ -5991,9 +5991,23 @@ window.addEventListener('message', (e) => {
   if (data.type === 'rdmpe-auth' && data.user) {
     currentUser = { name: data.user.name, role: data.user.role === 'admin' ? 'admin' : 'estimator' };
     pinBuffer = '';
-    showDashboard().catch(err => console.error('Dashboard load error:', err));
+    showDashboard()
+      .then(() => {
+        if (data.action && data.action.type === 'new-bid') {
+          createNewBidWithMode(data.action.mode);
+        }
+      })
+      .catch(err => console.error('Dashboard load error:', err));
   }
 });
+
+// Jump straight into a new bid in the requested mode — used by the Hub's
+// "New Bid — Simple/Advanced" quick actions.
+function createNewBidWithMode(mode) {
+  createNewBid();
+  currentBid.estimateMode = mode === 'advanced' ? 'advanced' : 'simple';
+  openBuilder();
+}
 
 async function init() {
   await loadSettings();
