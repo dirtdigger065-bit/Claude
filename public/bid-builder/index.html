@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RDMPE Bid Builder</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/jpeg" href="img/logo.jpg">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="loginScreen" class="screen active">
+    <div class="login-container">
+      <img src="img/logo.jpg" alt="RDMPE Logo" class="login-logo">
+      <h1 class="login-title">RD McKinney Plumbing &amp; Excavating</h1>
+      <p class="login-subtitle">Bid Builder</p>
+      <div class="pin-dots" id="pinDots">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      </div>
+      <div class="pin-error" id="pinError">Invalid PIN</div>
+      <div class="pin-pad" id="pinPad">
+        <button class="pin-btn" data-digit="1">1</button>
+        <button class="pin-btn" data-digit="2">2</button>
+        <button class="pin-btn" data-digit="3">3</button>
+        <button class="pin-btn" data-digit="4">4</button>
+        <button class="pin-btn" data-digit="5">5</button>
+        <button class="pin-btn" data-digit="6">6</button>
+        <button class="pin-btn" data-digit="7">7</button>
+        <button class="pin-btn" data-digit="8">8</button>
+        <button class="pin-btn" data-digit="9">9</button>
+        <button class="pin-btn pin-fn" data-action="backspace">&#9003;</button>
+        <button class="pin-btn" data-digit="0">0</button>
+        <button class="pin-btn pin-fn pin-enter" data-action="enter">&#10132;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboardScreen" class="screen">
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <img src="img/logo.jpg" alt="Logo" class="top-bar-logo">
+        <span class="top-bar-title">RDMPE Bid Builder</span>
+      </div>
+      <div class="top-bar-right">
+        <button id="hubBtn" class="btn btn-sm btn-outline" style="display:none;">&larr; Hub</button>
+        <span id="welcomeUser" class="welcome-text"></span>
+        <button id="settingsBtn" class="btn btn-sm btn-outline" style="display:none;">Settings</button>
+        <button id="logoutBtn" class="btn btn-sm btn-outline">Logout</button>
+      </div>
+    </header>
+    <main class="dashboard-content">
+      <div class="dashboard-header">
+        <h2>Your Bids</h2>
+        <button id="newBidBtn" class="btn btn-primary btn-lg">+ New Bid</button>
+        <button id="importBidBtn" class="btn btn-secondary btn-lg" onclick="showImportModal()" style="margin-left:8px">📥 Import Bid</button>
+      </div>
+      <div class="filter-tabs" id="filterTabs">
+        <button class="filter-tab active" data-filter="all">All</button>
+        <button class="filter-tab" data-filter="draft">Draft</button>
+        <button class="filter-tab" data-filter="submitted">Submitted</button>
+        <button class="filter-tab" data-filter="returned">Returned</button>
+        <button class="filter-tab" data-filter="approved">Approved</button>
+      </div>
+      <div id="dashboardAlert" class="dashboard-alert" style="display:none"></div>
+      <div class="bid-search-wrap">
+        <input type="text" id="bidSearch" class="bid-search" placeholder="🔍 Search bids by name, number, or address..." autocomplete="off">
+      </div>
+      <div id="bidsList" class="bids-list"></div>
+    </main>
+  </div>
+
+  <!-- Bid Builder -->
+  <div id="builderScreen" class="screen">
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <button id="backToDash" class="btn btn-sm btn-outline">&larr; Back</button>
+        <span id="builderTitle" class="top-bar-title">New Bid</span>
+        <button id="modeToggle" class="btn btn-sm btn-outline" title="Toggle Simple/Advanced">📋 Simple</button>
+        <span id="builderStatus" class="status-badge"></span>
+      </div>
+      <div class="top-bar-right">
+        <button id="builderSave" class="btn btn-sm btn-primary">Save Draft</button><span id="autoSaveIndicator" style="font-size:12px;color:#16a34a;font-weight:600;opacity:0;transition:opacity 0.3s;margin-left:8px;">✓ Auto-saved</span>
+        <button id="builderSubmit" class="btn btn-sm btn-accent" style="display:none;">Submit to Ryan</button>
+        <button id="builderApprove" class="btn btn-sm btn-success" style="display:none;">Approve</button>
+        <button id="builderSendBack" class="btn btn-sm btn-outline" style="display:none;">Send Back</button>
+        <button id="builderProposal" class="btn btn-sm btn-outline" style="display:none;">View Proposal</button>
+        <button id="builderFieldOrder" class="btn btn-sm btn-outline" style="display:none;">🚜 Field Work Order</button>
+        <button id="aiReviewBtn" class="btn btn-sm btn-outline" title="AI checks the bid for missing items, quantity issues, and questions">🧠 AI Review<span id="aiReviewBadge" class="ai-review-badge" style="display:none;"></span></button>
+        <button id="askAiBtn" class="btn btn-sm btn-outline" title="Ask the AI anything about this bid">🤖 Ask AI</button>
+        <button id="attachPlansBtn" class="btn btn-sm btn-outline" title="Attach plans, specs, addenda, photos — AI can read them and save notes with the bid">📎 Files</button>
+        <button id="costSummaryBtn" class="btn btn-sm btn-outline" title="View Cost Breakdown">📊 Cost Summary</button>
+        <button id="saveAsTemplateBtn" class="btn btn-sm btn-outline">💾 Save as Template</button>
+        <button id="builderDelete" class="btn btn-sm btn-danger">Delete</button>
+      </div>
+    </header>
+    <div class="builder-body">
+      <!-- Advanced Mode Tab Bar (B2W-style) -->
+      <div id="advTabBar" class="adv-tab-bar" style="display:none;">
+        <button class="adv-tab active" data-tab="items">Items <span class="adv-tab-count" id="tabItemCount">0</span></button>
+        <button class="adv-tab" data-tab="pricing">Pricing</button>
+        <button class="adv-tab" data-tab="summary">Summary</button>
+        <button class="adv-tab" data-tab="settings">Settings</button>
+      </div>
+
+      <!-- Header Fields -->
+      <section class="builder-section card" id="customerProjectSection">
+        <h3>Customer &amp; Project</h3>
+        <div class="form-group" style="position:relative;">
+          <label for="customerSearch">Customer <span style="font-weight:normal;color:#64748b;font-size:.85em">(search or add new)</span></label>
+          <input type="text" id="customerSearch" placeholder="🔍 Type to search QuickBooks customers..." autocomplete="off">
+          <div id="customerDropdown" class="customer-dropdown" style="display:none;"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group flex2">
+            <label for="clientName">Name / Company</label>
+            <input type="text" id="clientName" placeholder="e.g. John Smith or Acme LLC">
+          </div>
+          <div class="form-group flex2">
+            <label for="clientContact">Contact Person</label>
+            <input type="text" id="clientContact" placeholder="e.g. John Smith">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group flex2">
+            <label for="clientEmail">Email</label>
+            <input type="email" id="clientEmail" placeholder="e.g. john@example.com">
+          </div>
+          <div class="form-group flex2">
+            <label for="clientPhone">Phone</label>
+            <input type="tel" id="clientPhone" placeholder="e.g. 515-555-1234">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group flex3">
+            <label for="projectAddress">Project / Job Address</label>
+            <input type="text" id="projectAddress" placeholder="e.g. 123 Main St, Adel, IA 50003">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="projectDesc">Scope of Work / Project Description</label>
+          <textarea id="projectDesc" rows="3" placeholder="Describe the scope of work..."></textarea>
+        </div>
+      </section>
+
+      <!-- Catalog + Items -->
+      <div class="builder-columns">
+        <!-- Catalog Panel -->
+        <aside class="catalog-panel card" id="catalogPanel">
+          <div class="catalog-header">
+            <h3>Catalog</h3>
+            <button id="catalogToggle" class="btn btn-sm btn-outline catalog-close-mobile">✕</button>
+          </div>
+          <select id="catalogProjectType" class="catalog-project-filter">
+            <option value="">All Projects</option>
+            <option value="Septic" selected>Septic</option>
+            <option value="Storm">Storm</option>
+            <option value="Water">Water</option>
+            <option value="Sanitary">Sanitary</option>
+            <option value="General">General</option>
+          </select>
+          <input type="text" id="catalogSearch" class="catalog-search" placeholder="Search items...">
+          <div class="catalog-tabs" id="catalogTabs">
+            <button class="cat-tab active" data-cat="All">All</button>
+            <button class="cat-tab" data-cat="Tanks">Tanks</button>
+            <button class="cat-tab" data-cat="Pipe">Pipe</button>
+            <button class="cat-tab" data-cat="Fittings">Fittings</button>
+            <button class="cat-tab" data-cat="Rock">Rock</button>
+            <button class="cat-tab" data-cat="Pumps/Electrical">Pumps/Elec</button>
+            <button class="cat-tab" data-cat="Misc">Misc</button>
+          </div>
+          <div class="catalog-list" id="catalogList"></div>
+          <div id="suggestItemSection" class="suggest-item-section" style="display:none;">
+            <button id="suggestCatalogBtn" class="btn btn-sm btn-outline" style="width:100%;margin-top:8px;">📥 Suggest New Item</button>
+          </div>
+        </aside>
+
+        <!-- Items Table -->
+        <section class="items-section">
+          <!-- SIMPLE MODE BUILDER -->
+          <div id="simpleBuilder">
+          <div class="items-toolbar">
+            <button id="showCatalogBtn" class="btn btn-sm btn-primary">+ From Catalog</button>
+            <button id="addCustomBtn" class="btn btn-sm btn-outline">+ Custom Item</button>
+            <button id="addWaterlineBtn" class="btn btn-sm btn-outline">💧 + Waterline</button>
+            <button id="addLaborBtn" class="btn btn-sm btn-outline">+ Labor/Equipment</button>
+          </div>
+
+          <!-- Material Items Table -->
+          <div class="table-wrap">
+            <table class="items-table" id="itemsTable">
+              <thead>
+                <tr>
+                  <th class="col-num line-num-col">#</th>
+                  <th class="col-desc">Description</th>
+                  <th class="col-qty">Qty</th>
+                  <th class="col-unit">Unit</th>
+                  <th class="col-cost">Unit Cost</th>
+                  <th class="tax-col simple-hide">TX</th>
+                  <th class="col-markup adv-only">Markup%</th>
+                  <th class="col-oh adv-only">OH%</th>
+                  <th class="col-bond adv-only">Bond%</th>
+                  <th class="col-nomu adv-only">No MU</th>
+                  <th class="col-total">Total</th>
+                  <th class="col-actions"></th>
+                </tr>
+              </thead>
+              <tbody id="itemsBody"></tbody>
+            </table>
+            <div id="noItems" class="empty-msg">No items yet. Add from catalog or create a custom item.</div>
+          </div>
+
+          <!-- Labor Items Table -->
+          <h4 class="section-sub-title" id="laborTitle" style="display:none;">Labor / Equipment</h4>
+          <div class="table-wrap">
+            <table class="items-table" id="laborTable" style="display:none;">
+              <thead>
+                <tr>
+                  <th class="col-num line-num-col">#</th>
+                  <th class="col-desc">Description</th>
+                  <th class="col-hrs">Hours</th>
+                  <th class="col-rate">Rate</th>
+                  <th class="col-markup adv-only">Markup%</th>
+                  <th class="col-oh adv-only">OH%</th>
+                  <th class="col-bond adv-only">Bond%</th>
+                  <th class="col-nomu adv-only">No MU</th>
+                  <th class="col-ls" title="Lump Sum on Proposal">LS</th>
+                  <th class="col-total">Total</th>
+                  <th class="col-actions"></th>
+                </tr>
+              </thead>
+              <tbody id="laborBody"></tbody>
+            </table>
+          </div>
+
+          </div><!-- /simpleBuilder -->
+
+          <!-- ADVANCED MODE BUILDER -->
+          <div id="advancedBuilder" style="display:none">
+            <div class="adv-items-header">
+              <h3 style="margin:0">Bid Items</h3>
+              <button id="addAdvItemBtn" class="btn btn-sm btn-primary">+ Add Item</button>
+            </div>
+            <div id="noAdvItems" class="empty-msg">No items yet. Click "+ Add Item" to build your bid.</div>
+            <div class="table-wrap">
+              <table class="items-table" id="advItemsTable" style="display:none">
+                <thead>
+                  <tr>
+                    <th style="width:55px">Item</th>
+                    <th>Description</th>
+                    <th style="width:70px;text-align:right">Qty</th>
+                    <th style="width:50px">Unit</th>
+                    <th style="width:95px;text-align:right">Bid Unit</th>
+                    <th style="width:105px;text-align:right">Extension</th>
+                    <th style="width:55px"></th>
+                  </tr>
+                </thead>
+                <tbody id="advItemsBody"></tbody>
+                <tfoot>
+                  <tr class="adv-subtotal-row">
+                    <td colspan="5" style="text-align:right"><strong>Items Subtotal</strong></td>
+                    <td style="text-align:right"><strong id="advSubtotal">$0.00</strong></td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div><!-- /advancedBuilder -->
+
+          <!-- Pricing Tab Panel -->
+          <div id="pricingTabPanel" class="adv-tab-panel pricing-tab-panel" style="display:none;">
+            <!-- KPI Summary Bar -->
+            <div class="pricing-kpi-bar">
+              <div class="pricing-kpi">
+                <div class="pricing-kpi-label">Direct Cost</div>
+                <div class="pricing-kpi-value" id="pricingKpiDirect">$0</div>
+              </div>
+              <div class="pricing-kpi">
+                <div class="pricing-kpi-label">Items Subtotal</div>
+                <div class="pricing-kpi-value" id="pricingKpiBid">$0</div>
+              </div>
+              <div class="pricing-kpi kpi-highlight">
+                <div class="pricing-kpi-label">Total Bid Price</div>
+                <div class="pricing-kpi-value" id="pricingKpiTotal">$0</div>
+              </div>
+              <div class="pricing-kpi">
+                <div class="pricing-kpi-label">True Margin</div>
+                <div class="pricing-kpi-value" id="pricingKpiMargin">0%</div>
+              </div>
+              <div class="pricing-kpi">
+                <div class="pricing-kpi-label">Profit</div>
+                <div class="pricing-kpi-value" id="pricingKpiProfit">$0</div>
+              </div>
+            </div>
+
+            <!-- Global Adjuster Bar -->
+            <div class="pricing-global-bar">
+              <div class="global-group">
+                <label>Markup %</label>
+                <input type="number" id="globalMarkup" step="1" min="0" max="200" value="20">
+                <button class="btn btn-sm btn-outline" id="applyGlobalMarkup">Apply All</button>
+              </div>
+              <div class="global-group">
+                <label>Overhead %</label>
+                <input type="number" id="globalOH" step="1" min="0" max="100" value="10">
+                <button class="btn btn-sm btn-outline" id="applyGlobalOH">Apply All</button>
+              </div>
+              <div class="global-group global-target">
+                <label>Target Margin %</label>
+                <input type="number" id="globalMargin" step="1" min="0" max="95" value="35">
+                <button class="btn btn-sm btn-primary" id="applyGlobalMargin">Set All Prices</button>
+              </div>
+            </div>
+
+            <!-- Desktop Spreadsheet Table -->
+            <div class="pricing-table-wrap pricing-desktop">
+              <table class="pricing-table" id="pricingTable">
+                <thead>
+                  <tr>
+                    <th style="width:36px">#</th>
+                    <th style="text-align:left">Description</th>
+                    <th style="width:55px">Qty</th>
+                    <th style="width:42px">Unit</th>
+                    <th style="width:78px">Direct/Unit</th>
+                    <th style="width:72px">MU%</th>
+                    <th style="width:68px">OH%</th>
+                    <th style="width:80px">Calc'd Unit</th>
+                    <th style="width:98px">Bid Unit</th>
+                    <th style="width:95px">Extension</th>
+                    <th style="width:72px">Margin%</th>
+                    <th style="width:80px">Margin$</th>
+                  </tr>
+                </thead>
+                <tbody id="pricingBody"></tbody>
+              </table>
+            </div>
+
+            <!-- Mobile Card Layout -->
+            <div class="pricing-mobile" id="pricingCards"></div>
+
+            <!-- Total Bid Price Cascade -->
+            <div class="pricing-cascade" id="pricingCascade">
+              <div class="cascade-row">
+                <span class="cascade-label">Items Subtotal</span>
+                <span class="cascade-value" id="cascadeItemsSub">$0.00</span>
+              </div>
+              <div class="cascade-row" id="cascadeBondRow">
+                <span class="cascade-label">+ Bond (<span id="cascadeBondPct">3.5</span>%)</span>
+                <span class="cascade-value" id="cascadeBond">$0.00</span>
+              </div>
+              <div class="cascade-row" id="cascadeConsumRow">
+                <span class="cascade-label">+ Consumables</span>
+                <span class="cascade-value" id="cascadeConsum">$0.00</span>
+              </div>
+              <div class="cascade-row" id="cascadeTaxRow">
+                <span class="cascade-label">+ Sales Tax (<span id="cascadeTaxPct">7</span>%)</span>
+                <span class="cascade-value" id="cascadeTax">$0.00</span>
+              </div>
+              <div class="cascade-row cascade-total">
+                <span class="cascade-label">Total Bid Price</span>
+                <span class="cascade-value" id="cascadeTotal">$0.00</span>
+              </div>
+              <div class="cascade-row cascade-margin">
+                <span class="cascade-label">True Margin</span>
+                <span class="cascade-value" id="cascadeMargin">0% ($0.00)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Advanced Bid Cost Summary -->
+          <div id="advBidSummary" class="adv-bid-summary card" style="display:none;">
+            <div class="summary-header" id="advSummaryToggle">
+              <h3 style="margin:0;display:flex;align-items:center;gap:8px;">📊 Bid Cost Summary <span id="summaryQuickTotal" style="font-size:0.8em;color:#276749;font-weight:700;"></span></h3>
+              <span class="summary-toggle-icon">▶</span>
+            </div>
+            <div id="advSummaryBody" class="summary-body hidden">
+              <!-- Per-item production breakdown rendered by JS -->
+              <div id="summaryItemBreakdown"></div>
+              <hr>
+              <!-- Aggregate totals -->
+              <div style="display:flex;gap:8px;margin-bottom:10px;">
+                <div style="flex:1;background:#f0f4f8;padding:8px 12px;border-radius:6px;text-align:center;">
+                  <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:#718096;font-weight:600;">Labor Hours</div>
+                  <div id="summaryTotalLaborHrs" style="font-weight:700;font-size:1rem;color:#1a365d;"></div>
+                </div>
+                <div style="flex:1;background:#f0f4f8;padding:8px 12px;border-radius:6px;text-align:center;">
+                  <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:#718096;font-weight:600;">Equip Hours</div>
+                  <div id="summaryTotalEquipHrs" style="font-weight:700;font-size:1rem;color:#1a365d;"></div>
+                </div>
+              </div>
+              <!-- Cost Category Breakdown -->
+              <div style="margin-bottom:12px;">
+                <div style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.5px;color:#718096;font-weight:700;margin-bottom:6px;">Cost Breakdown by Category</div>
+                <div style="background:#f7fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;">
+                  <div class="summary-row" style="font-size:0.92em;">
+                    <span>🧱 Materials</span>
+                    <span id="summaryCatMaterials" style="font-weight:600;"></span>
+                  </div>
+                  <div class="summary-row" style="font-size:0.92em;">
+                    <span>👷 Labor</span>
+                    <span id="summaryCatLabor" style="font-weight:600;"></span>
+                  </div>
+                  <div class="summary-row" style="font-size:0.92em;">
+                    <span>🚜 Equipment</span>
+                    <span id="summaryCatEquipment" style="font-weight:600;"></span>
+                  </div>
+                  <div class="summary-row" style="font-size:0.92em;" id="summaryCatSubsRow">
+                    <span>📋 Subcontractors</span>
+                    <span id="summaryCatSubs" style="font-weight:600;"></span>
+                  </div>
+                  <div class="summary-row" style="font-size:0.92em;border-top:1px solid #e2e8f0;margin-top:4px;padding-top:6px;font-weight:700;color:#1a365d;">
+                    <span>Total Direct Cost</span>
+                    <span id="summaryCatTotal"></span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="summary-row summary-subtotal">
+                <span>Direct Cost</span>
+                <span id="summaryDirectCost"></span>
+              </div>
+              <div class="summary-row">
+                <span>Markup</span>
+                <span id="summaryMarkup"></span>
+              </div>
+              <div class="summary-row">
+                <span>Overhead</span>
+                <span id="summaryOverhead"></span>
+              </div>
+              <div class="summary-row" id="summaryOverrideRow" style="display:none;background:#fff8e1;padding:6px 8px;border-radius:4px;">
+                <span>Bid Price Adj</span>
+                <span id="summaryOverrideAdj" style="font-weight:700;"></span>
+              </div>
+              <hr style="border-color:#e2e8f0;">
+              <div class="summary-row" style="font-weight:700;">
+                <span>Items Subtotal</span>
+                <span id="summaryItemsSubtotal"></span>
+              </div>
+              <div class="summary-row" id="summaryBondRow">
+                <span>Bond <small style="color:#718096;">(<span id="summaryBondPct"></span>%)</small></span>
+                <span id="summaryBond"></span>
+              </div>
+              <div class="summary-row" id="summaryConsumablesRow">
+                <span>Consumables</span>
+                <span id="summaryConsumables"></span>
+              </div>
+              <div class="summary-row" id="summarySalesTaxRow" style="background:#fafafa;padding:6px 8px;border-radius:4px;">
+                <span>Sales Tax (<span id="summaryTaxRatePct"></span>%)</span>
+                <span id="summarySalesTax" style="font-weight:700;"></span>
+              </div>
+              <hr style="border-color:#1a365d;">
+              <div class="summary-row summary-grand">
+                <span>Total Bid Price</span>
+                <span id="summaryBidPrice"></span>
+              </div>
+              <div class="summary-row" style="color:#276749;font-weight:600;">
+                <span>True Margin</span>
+                <span id="summaryMargin"></span>
+              </div>
+              <div class="summary-row" id="summaryAltRow" style="display:none;color:#92400e;font-weight:600;">
+                <span>Alternates (priced separately)</span>
+                <span id="summaryAltTotal"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Job Type & Exclusions -->
+          <section class="builder-section card exclusions-section">
+            <h3>Exclusions & Terms</h3>
+            <div class="job-type-selector" id="jobTypeSelector">
+              <button class="job-type-btn active" data-job-type="residential">🏠 Residential</button>
+              <button class="job-type-btn" data-job-type="commercial">🏢 Commercial</button>
+            </div>
+            <h4 class="excl-sub-heading">Exclusions / Clarifications</h4>
+            <div id="exclusionChecks" class="exclusion-checks compact-checklist"></div>
+            <h4 class="excl-sub-heading" style="margin-top:14px;">Terms &amp; Conditions</h4>
+            <div id="termsChecks" class="exclusion-checks compact-checklist"></div>
+            <div class="form-group" style="margin-top:12px;">
+              <label for="customExclusions">Additional Exclusions / Notes</label>
+              <textarea id="customExclusions" rows="3" spellcheck="true" placeholder="Enter any job-specific exclusions..."></textarea>
+            </div>
+          </section>
+
+          <!-- Bid Controls -->
+          <section class="builder-section card bid-controls-section">
+            <h3>Bid Controls</h3>
+            <div class="bid-controls-grid">
+              <label class="toggle-control">
+                <input type="checkbox" id="bidOverheadToggle" checked>
+                <span class="toggle-label">Include Overhead</span>
+              </label>
+              <label class="toggle-control">
+                <input type="checkbox" id="bidBondToggle" checked>
+                <span class="toggle-label">Include Bond</span>
+              </label>
+              <div class="consumables-control">
+                <label for="bidConsumables">Consumables $</label>
+                <input type="number" id="bidConsumables" step="1" min="0" value="100" class="consumables-input">
+                <select id="consumablesDisplay" style="margin-left:8px;padding:4px 8px;border-radius:4px;border:1px solid #ccc;font-size:0.85rem;">
+                  <option value="show">Show on Proposal</option>
+                  <option value="totalOnly">Include in Total Only</option>
+                  <option value="foldInto">Fold into Item…</option>
+                </select>
+                <select id="consumablesFoldTarget" style="display:none;margin-left:4px;padding:4px 8px;border-radius:4px;border:1px solid #ccc;font-size:0.85rem;max-width:200px;">
+                </select>
+              </div>
+              <div class="control-row" id="taxControlRow" style="display:flex;align-items:center;gap:12px;">
+                <label style="display:flex;align-items:center;gap:8px;">
+                  <input type="checkbox" id="bidTaxToggle"> Sales Tax
+                </label>
+                <div style="display:flex;align-items:center;gap:4px;">
+                  <input type="number" id="bidTaxRate" value="7" min="0" max="25" step="0.1" style="width:70px"> %
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Customer Notes -->
+          <section class="builder-section card">
+            <h3>Customer Notes</h3>
+            <textarea id="customerNotes" rows="4" spellcheck="true" placeholder="Notes visible to customer on proposal (e.g., project details, special conditions, payment info...)"></textarea>
+          </section>
+
+          <!-- Proposal Options -->
+          <section class="builder-section card proposal-options-section">
+            <h3>Proposal Display Options</h3>
+            <div class="proposal-options-grid">
+              <label class="toggle-control">
+                <input type="checkbox" id="showUnitPrices" checked>
+                <span class="toggle-label">Show unit prices on proposal</span>
+              </label>
+              <label class="toggle-control">
+                <input type="checkbox" id="showQty" checked>
+                <span class="toggle-label">Show quantities on proposal</span>
+              </label>
+            </div>
+          </section>
+
+          <!-- Summary -->
+          <section class="summary-section card" id="simpleSummarySection">
+            <h3>Summary</h3>
+            <div class="summary-grid">
+              <div class="summary-row"><span>Materials (base cost)</span><span id="sumMaterials">$0.00</span></div>
+              <div class="summary-row"><span>Labor/Equipment (base cost)</span><span id="sumLabor">$0.00</span></div>
+              <div class="summary-row" style="color:#2e7d32;"><span>+ Markup</span><span id="sumMarkup">$0.00</span></div>
+              <div class="summary-row" id="sumOverheadRow" style="color:#e65100;"><span>+ Overhead</span><span id="sumOverhead">$0.00</span></div>
+              <div class="summary-row" id="sumBondRow" style="color:#6a1b9a;"><span>+ Bond</span><span id="sumBond">$0.00</span></div>
+              <div class="summary-row" style="border-top:2px solid #ddd;padding-top:8px;margin-top:4px;font-weight:600;"><span>Items Subtotal</span><span id="sumItemsSubtotal">$0.00</span></div>
+              <div class="summary-row"><span>Consumables</span><span id="sumConsumables">$0.00</span></div>
+              <div class="summary-row" id="sumSalesTaxRow"><span>🧾 Sales Tax</span><span id="sumSalesTax">$0.00</span></div>
+              <div class="summary-row summary-grand"><span>Grand Total</span><span id="sumGrand">$0.00</span></div>
+            </div>
+          </section>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Screen -->
+  <div id="settingsScreen" class="screen">
+    <header class="top-bar">
+      <div class="top-bar-left">
+        <button id="settingsBack" class="btn btn-sm btn-outline">&larr; Back</button>
+        <span class="top-bar-title">Settings</span>
+      </div>
+      <div class="top-bar-right">
+        <button id="settingsSave" class="btn btn-sm btn-primary">Save Settings</button>
+      </div>
+    </header>
+    <div class="settings-tabs">
+      <button class="settings-tab active" data-settings-tab="markup">Markup & Defaults</button>
+      <button class="settings-tab" data-settings-tab="labor">Labor / Equipment / Crews</button>
+      <button class="settings-tab" data-settings-tab="catalog">Catalog</button>
+      <button class="settings-tab" data-settings-tab="exclusions">Exclusions</button>
+      <button class="settings-tab" data-settings-tab="templates">Templates</button>
+      <button class="settings-tab" data-settings-tab="wizard">🧙 Wizard</button>
+      <button class="settings-tab" data-settings-tab="estimator">Estimator Controls</button>
+    </div>
+    <main class="settings-content">
+      <!-- Tab: Markup & Defaults -->
+      <div class="settings-tab-panel active" data-settings-panel="markup">
+        <section class="card">
+          <h3>Default Markup Rates</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="setMarkup">Default Markup %</label>
+              <input type="number" id="setMarkup" step="0.1" value="20">
+            </div>
+            <div class="form-group">
+              <label for="setOverhead">Default Overhead %</label>
+              <input type="number" id="setOverhead" step="0.1" value="10">
+            </div>
+            <div class="form-group">
+              <label for="setBond">Default Bond %</label>
+              <input type="number" id="setBond" step="0.1" value="2.5">
+            </div>
+          </div>
+        </section>
+        <section class="card">
+          <h3>Default Consumables</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="setConsumables">Default Consumables $</label>
+              <input type="number" id="setConsumables" step="1" value="100">
+            </div>
+            <div class="form-group">
+              <label for="setTaxRate">Default Sales Tax Rate (%)</label>
+              <input type="number" id="setTaxRate" value="7" min="0" max="25" step="0.1">
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Tab: Labor / Equipment / Crews -->
+      <div class="settings-tab-panel" data-settings-panel="labor">
+        <section class="card">
+          <h3>Labor Rates</h3>
+          <p class="settings-help">Define hourly rates for each worker type. These rates are used when building crews and adding labor to bids.</p>
+          <div id="settingsLaborRates"></div>
+          <div class="form-row" style="margin-top:12px;">
+            <input type="text" id="newLaborTitle" placeholder="Title (e.g. Laborer, Operator)" class="flex2">
+            <input type="number" id="newLaborRate" placeholder="$/hr" step="0.01" min="0" style="width:100px;">
+            <button id="addLaborRateBtn" class="btn btn-sm btn-primary">Add</button>
+          </div>
+        </section>
+        <section class="card">
+          <h3>Equipment Rates</h3>
+          <p class="settings-help">Define hourly rates for equipment. Mark owned vs. rental.</p>
+          <div id="settingsEquipmentRates"></div>
+          <div class="form-row" style="margin-top:12px;">
+            <input type="text" id="newEquipTitle" placeholder="Equipment name" class="flex2">
+            <input type="number" id="newEquipRate" placeholder="$/hr" step="0.01" min="0" style="width:100px;">
+            <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;"><input type="checkbox" id="newEquipOwned" checked> Owned</label>
+            <button id="addEquipRateBtn" class="btn btn-sm btn-primary">Add</button>
+          </div>
+        </section>
+        <section class="card">
+          <h3>Crew Compositions</h3>
+          <p class="settings-help">Define named crews from your labor rates. The combined hourly rate auto-calculates. Pick a crew when adding labor to a bid.</p>
+          <div id="settingsCrewComps"></div>
+          <button id="addCrewCompBtn" class="btn btn-sm btn-primary" style="margin-top:12px;">+ Add Crew</button>
+        </section>
+      </div>
+
+      <!-- Tab: Catalog -->
+      <div class="settings-tab-panel" data-settings-panel="catalog">
+        <section class="card" id="pendingCatalogSection">
+          <h3>📥 Pending Catalog Items</h3>
+          <p class="settings-help">Items suggested by estimators. Approve to add to the shared catalog.</p>
+          <div id="pendingCatalogList"></div>
+          <p id="noPendingMsg" style="color:#999;font-style:italic;">No pending items.</p>
+        </section>
+        <section class="card">
+          <h3>Catalog Management</h3>
+          <div class="cat-import-export-toolbar">
+            <button id="importCatalogBtn" class="btn btn-sm btn-outline cat-ie-btn">📥 Import</button>
+            <button id="exportCatalogBtn" class="btn btn-sm btn-outline cat-ie-btn">📤 Export</button>
+            <button id="downloadTemplateBtn" class="btn btn-sm btn-outline cat-ie-btn">📋 Template</button>
+            <input type="file" id="catalogFileInput" accept=".xlsx,.xls,.csv" style="display:none">
+          </div>
+          <div class="cat-mgmt-toolbar">
+            <input type="text" id="catMgmtSearch" placeholder="Search catalog..." class="cat-mgmt-search">
+            <select id="catMgmtCategoryFilter"><option value="">All Categories</option></select>
+            <span id="catMgmtCount" class="cat-mgmt-count"></span>
+            <button id="catMgmtAddBtn" class="btn btn-sm btn-primary">+ Add Item</button>
+          </div>
+          <div id="settingsCatalogList" class="cat-mgmt-list"></div>
+        </section>
+      </div>
+
+      <!-- Tab: Exclusions -->
+      <div class="settings-tab-panel" data-settings-panel="exclusions">
+        <div class="settings-excl-type-tabs">
+          <button class="settings-excl-type-tab active" data-excl-cat="residential">🏠 Residential</button>
+          <button class="settings-excl-type-tab" data-excl-cat="commercial">🏢 Commercial</button>
+        </div>
+        <section class="card" id="settingsExclResidentialSection">
+          <h3>🏠 Residential Exclusions</h3>
+          <div id="settingsResExclusions"></div>
+          <div class="form-row" style="margin-top:12px;">
+            <input type="text" id="newResExclusion" placeholder="Add new residential exclusion..." class="flex3">
+            <button id="addResExclusionBtn" class="btn btn-sm btn-primary">Add</button>
+          </div>
+        </section>
+        <section class="card" id="settingsResTermsSection">
+          <h3>🏠 Residential Terms</h3>
+          <div id="settingsResTerms"></div>
+          <div class="form-row" style="margin-top:12px;">
+            <input type="text" id="newResTerm" placeholder="Add new residential term..." class="flex3">
+            <button id="addResTermBtn" class="btn btn-sm btn-primary">Add</button>
+          </div>
+        </section>
+        <section class="card" id="settingsExclCommercialSection" style="display:none;">
+          <h3>🏢 Commercial Exclusions</h3>
+          <div id="settingsComExclusions"></div>
+          <div class="form-row" style="margin-top:12px;">
+            <input type="text" id="newComExclusion" placeholder="Add new commercial exclusion..." class="flex3">
+            <button id="addComExclusionBtn" class="btn btn-sm btn-primary">Add</button>
+          </div>
+        </section>
+        <section class="card" id="settingsComTermsSection" style="display:none;">
+          <h3>🏢 Commercial Terms</h3>
+          <div id="settingsComTerms"></div>
+          <div class="form-row" style="margin-top:12px;">
+            <input type="text" id="newComTerm" placeholder="Add new commercial term..." class="flex3">
+            <button id="addComTermBtn" class="btn btn-sm btn-primary">Add</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Tab: Templates -->
+      <div class="settings-tab-panel" data-settings-panel="templates">
+        <section class="card">
+          <h3>📋 Bid Templates</h3>
+          <p class="settings-help">Create and manage bid templates. Users can start a new bid from any template.</p>
+          <div id="settingsTemplatesList"></div>
+          <p id="noTemplatesMsg" style="color:#999;font-style:italic;">No templates yet. Create one from any bid using "Save as Template".</p>
+        </section>
+      </div>
+
+      <!-- Tab: Septic Wizard Config -->
+      <div class="settings-tab-panel" data-settings-panel="wizard">
+        <section class="card">
+          <h3>🧙 Septic Wizard Settings</h3>
+          <p class="settings-help">Controls what the Septic Wizard builds. Item names must match catalog descriptions exactly (start typing for suggestions). Quantities per bedroom are multiplied by the bedroom count.</p>
+          <div id="wizardConfigBody"><!-- rendered by JS --></div>
+          <div style="margin-top:14px;display:flex;gap:10px;">
+            <button id="wizardConfigSave" class="btn btn-primary">Save Wizard Settings</button>
+            <button id="wizardConfigReset" class="btn btn-outline">Reset to Defaults</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Tab: Estimator Controls -->
+      <div class="settings-tab-panel" data-settings-panel="estimator">
+        <section class="card">
+          <h3>📋 Default Bid Settings for Estimators</h3>
+          <p class="settings-help">These defaults apply when Bob or Cody create a new bid.</p>
+          <div class="estimator-controls-grid">
+            <div class="est-ctrl-row">
+              <label>Default Mode</label>
+              <select id="estDefaultMode">
+                <option value="simple">Simple</option>
+                <option value="advanced">Advanced</option>
+              </select>
+            </div>
+            <div class="est-ctrl-row">
+              <label>Show Unit Prices on Proposal</label>
+              <div class="toggle-group">
+                <label><input type="checkbox" id="estDefaultShowPrices"> Default ON</label>
+                <label><input type="checkbox" id="estLockShowPrices"> Lock (estimator can't change)</label>
+              </div>
+            </div>
+            <div class="est-ctrl-row">
+              <label>Show Quantities on Proposal</label>
+              <div class="toggle-group">
+                <label><input type="checkbox" id="estDefaultShowQty"> Default ON</label>
+                <label><input type="checkbox" id="estLockShowQty"> Lock (estimator can't change)</label>
+              </div>
+            </div>
+            <div class="est-ctrl-row">
+              <label>Overhead Toggle</label>
+              <div class="toggle-group">
+                <label><input type="checkbox" id="estDefaultOverhead" checked> Default ON</label>
+                <label><input type="checkbox" id="estCanToggleOverhead" checked> Estimator can toggle</label>
+              </div>
+            </div>
+            <div class="est-ctrl-row">
+              <label>Bond Toggle</label>
+              <div class="toggle-group">
+                <label><input type="checkbox" id="estDefaultBond" checked> Default ON</label>
+                <label><input type="checkbox" id="estCanToggleBond" checked> Estimator can toggle</label>
+              </div>
+            </div>
+            <div class="est-ctrl-row">
+              <label>Lump Sum (hide line details)</label>
+              <div class="toggle-group">
+                <label><input type="checkbox" id="estDefaultLumpSum" checked> Default ON</label>
+                <label><input type="checkbox" id="estLockLumpSum"> Lock (estimator can't change)</label>
+              </div>
+            </div>
+            <div class="est-ctrl-row">
+              <label>Can Switch Modes (Simple ↔ Advanced)</label>
+              <label><input type="checkbox" id="estCanSwitchMode" checked> Allow</label>
+            </div>
+            <div class="est-ctrl-row">
+              <label>Default Consumables $</label>
+              <input type="number" id="estDefaultConsumables" value="100" step="1" style="width:100px;">
+            </div>
+          </div>
+        </section>
+        <section class="card">
+          <h3>🔒 Approval Lock Behavior</h3>
+          <p class="settings-help">When you approve a bid, your display settings (unit prices, quantities, lump sum) are saved. Estimators must manually override to change them.</p>
+          <div class="est-ctrl-row">
+            <label><input type="checkbox" id="estApprovalLocks" checked> Lock proposal display settings on approval</label>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Catalog Edit Modal -->
+  <div id="catEditModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:480px;">
+      <h3 id="catEditTitle">Add Catalog Item</h3>
+      <div class="form-group">
+        <label>Description</label>
+        <input type="text" id="catEditDesc" placeholder="e.g., 1000 Gal Septic Tank">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Unit</label>
+          <input type="text" id="catEditUnit" value="EA" placeholder="EA, LF, etc.">
+        </div>
+        <div class="form-group">
+          <label>Price</label>
+          <input type="number" id="catEditPrice" step="0.01" min="0" placeholder="0.00">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Vendor / Supplier</label>
+        <input type="text" id="catEditVendor" placeholder="e.g., Ferguson, Oldcastle, HD Supply...">
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <input type="text" id="catEditCategory" placeholder="e.g., Tank, Pipe, Fitting..." list="catCategoryList">
+        <datalist id="catCategoryList"></datalist>
+      </div>
+      <div class="form-group">
+        <label>Project Type</label>
+        <select id="catEditProjectType">
+          <option value="Septic">Septic</option>
+          <option value="Storm">Storm</option>
+          <option value="Water">Water</option>
+          <option value="Sanitary">Sanitary</option>
+          <option value="General">General</option>
+        </select>
+      </div>
+      <div class="form-row" style="justify-content:flex-end;gap:8px;margin-top:16px;">
+        <button id="catEditCancel" class="btn btn-sm btn-outline">Cancel</button>
+        <button id="catEditSave" class="btn btn-sm btn-primary">Save Item</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Save Custom Item to Catalog Modal -->
+  <div id="saveCustomModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:480px;">
+      <h3>💾 Save to Catalog</h3>
+      <p style="color:#666;margin-bottom:12px;">Save this item for reuse in future bids</p>
+      <div class="form-group">
+        <label>Description</label>
+        <input type="text" id="saveCustomDesc">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Unit</label>
+          <input type="text" id="saveCustomUnit" value="EA">
+        </div>
+        <div class="form-group">
+          <label>Price</label>
+          <input type="number" id="saveCustomPrice" step="0.01" min="0">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Category</label>
+          <input type="text" id="saveCustomCategory" placeholder="e.g., Tank, Pipe, Custom..." list="saveCustomCatList">
+          <datalist id="saveCustomCatList"></datalist>
+        </div>
+        <div class="form-group">
+          <label>Project Type</label>
+          <select id="saveCustomProjectType">
+            <option value="General">General</option>
+            <option value="Septic">Septic</option>
+            <option value="Storm">Storm</option>
+            <option value="Water">Water</option>
+            <option value="Sanitary">Sanitary</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row" style="justify-content:flex-end;gap:8px;margin-top:16px;">
+        <button id="saveCustomCancel" class="btn btn-sm btn-outline">Cancel</button>
+        <button id="saveCustomSave" class="btn btn-sm btn-primary">Save to Catalog</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Proposal Preview -->
+  <div id="proposalScreen" class="screen">
+    <div class="proposal-toolbar no-print">
+      <button id="proposalBack" class="btn btn-sm btn-outline">&larr; Back to Bid</button>
+      <button id="proposalPrint" class="btn btn-sm btn-primary">Print / Save PDF</button>
+    </div>
+    <div class="proposal-page" id="proposalPage"></div>
+  </div>
+
+  <!-- Catalog Add Modal -->
+  <div id="catalogModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+      <h3 id="catalogModalTitle">Add Item</h3>
+      <p id="catalogModalDesc"></p>
+      <p id="catalogModalPrice"></p>
+      <div class="form-group">
+        <label for="catalogModalQty">Quantity</label>
+        <input type="number" id="catalogModalQty" min="0.01" step="any" value="1">
+      </div>
+      <div class="modal-actions">
+        <button id="catalogModalCancel" class="btn btn-sm btn-outline">Cancel</button>
+        <button id="catalogModalAdd" class="btn btn-sm btn-primary">Add to Bid</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Item Modal -->
+  <div id="customModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+      <h3>Add Custom Item</h3>
+      <div class="form-group">
+        <label for="customDesc">Description</label>
+        <input type="text" id="customDesc" placeholder="Item description">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="customQty">Qty</label>
+          <input type="number" id="customQty" min="0.01" step="any" value="1">
+        </div>
+        <div class="form-group">
+          <label for="customUnit">Unit</label>
+          <input type="text" id="customUnit" value="EA" placeholder="EA, LF, etc.">
+        </div>
+        <div class="form-group">
+          <label for="customCost">Unit Cost ($)</label>
+          <input type="number" id="customCost" min="0" step="0.01" value="0">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="customModalCancel" class="btn btn-sm btn-outline">Cancel</button>
+        <button id="customModalAdd" class="btn btn-sm btn-primary">Add to Bid</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Labor Modal -->
+  <div id="laborModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+      <h3>Add Labor & Equipment</h3>
+      <div class="form-group">
+        <label>Quick Select Crew</label>
+        <select id="laborCrewSelect" style="width:100%;">
+          <option value="">— Custom (enter manually) —</option>
+        </select>
+      </div>
+      <hr style="margin:8px 0;border-color:#eee;">
+      <div class="form-group">
+        <label for="laborDesc">Description</label>
+        <input type="text" id="laborDesc" placeholder="e.g. Equipment and Labor" value="Equipment and Labor">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="laborHours">Hours</label>
+          <input type="number" id="laborHours" min="0.01" step="any" value="8">
+        </div>
+        <div class="form-group">
+          <label for="laborRate">Rate ($/hr)</label>
+          <input type="number" id="laborRate" min="0" step="0.01" value="500">
+        </div>
+      </div>
+      <div class="form-row" style="align-items:center; gap:12px; margin-bottom:12px;">
+        <label style="display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" id="laborLumpSum">
+          Show as Lump Sum on Proposal
+        </label>
+      </div>
+      <div id="laborBreakdownPreview" class="labor-breakdown-preview" style="display:none;"></div>
+      <div class="modal-actions">
+        <button id="laborModalCancel" class="btn btn-sm btn-outline">Cancel</button>
+        <button id="laborModalAdd" class="btn btn-sm btn-primary">Add to Bid</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Advanced Item Editor Modal -->
+  <div id="advItemModal" class="modal-overlay" style="display:none">
+    <div class="modal-box adv-item-editor">
+      <h3 id="advItemModalTitle">Add Bid Item</h3>
+      <div class="adv-item-header-fields">
+        <div class="form-group" style="width:70px">
+          <label>Item #</label>
+          <input type="number" id="advItemNum" min="1" step="1" placeholder="#">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>Description</label>
+          <input type="text" id="advItemDesc" placeholder="e.g., RCP 15&quot;">
+        </div>
+        <div class="form-group" style="width:80px">
+          <label>Qty</label>
+          <input type="number" id="advItemQty" min="0.01" step="any" value="1">
+        </div>
+        <div class="form-group" style="width:70px">
+          <label>Unit</label>
+          <input type="text" id="advItemUnit" placeholder="LF" value="EA">
+        </div>
+      </div>
+      <div class="cost-section">
+        <div class="cost-section-header">
+          <h4 style="margin:0">Cost Breakdown</h4>
+          <div class="cost-add-btns">
+            <button class="btn btn-sm btn-outline add-cost-btn" data-cost-type="material">+ Material</button>
+            <button class="btn btn-sm btn-primary add-cost-btn" data-cost-type="catalog">+ From Catalog</button>
+            <button class="btn btn-sm btn-outline add-cost-btn" data-cost-type="labor">+ Labor</button>
+            <button class="btn btn-sm btn-outline add-cost-btn" data-cost-type="equipment">+ Equipment</button>
+            <button class="btn btn-sm btn-outline add-cost-btn" data-cost-type="subcontractor" style="background:#fff3e0;border-color:#ef6c00;color:#e65100;">🤝 + Sub</button>
+            <button class="btn btn-sm btn-outline add-cost-btn" id="addCrewToCostBtn" style="background:#e8f5e9;border-color:#4caf50;color:#2e7d32;">👷 + Crew</button>
+          </div>
+        </div>
+        <!-- Inline catalog search -->
+        <div id="advCatSearchPanel" style="display:none" class="adv-cat-search">
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="text" id="advCatSearchInput" placeholder="Search catalog..." style="flex:1">
+            <select id="advCatSearchPT" style="width:90px">
+              <option value="">All</option>
+              <option value="Septic">Septic</option>
+              <option value="Storm">Storm</option>
+              <option value="Water">Water</option>
+              <option value="Sanitary">Sanitary</option>
+              <option value="General">General</option>
+            </select>
+            <button class="btn btn-sm btn-outline" id="advCatSearchClose">&times;</button>
+          </div>
+          <div id="advCatResults" class="adv-cat-results"></div>
+        </div>
+        <!-- Crew Picker (inline) -->
+        <div id="advCrewPickerPanel" style="display:none" class="adv-cat-search">
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+            <strong style="flex:1;">Select a Saved Crew</strong>
+            <button class="btn btn-sm btn-outline" id="advCrewPickerClose">&times;</button>
+          </div>
+          <div id="advCrewPickerList" style="max-height:200px;overflow-y:auto;"></div>
+        </div>
+        <div id="noCosts" class="empty-msg" style="padding:12px;font-size:0.9em">
+          No costs added. Add materials, labor, or equipment below — or just enter a Bid Unit directly.
+        </div>
+        <div class="table-wrap">
+          <table class="items-table cost-table" id="costsTable" style="display:none">
+            <thead>
+              <tr>
+                <th style="width:75px">Type</th>
+                <th>Description</th>
+                <th style="width:65px;text-align:right">Qty/Hrs</th>
+                <th style="width:45px">Unit</th>
+                <th style="width:80px;text-align:right">Rate</th>
+                <th style="width:52px;text-align:right">MU%</th>
+                <th style="width:48px;text-align:right">OH%</th>
+                <th style="width:36px;text-align:center">TX</th>
+                <th style="width:90px;text-align:right">Total</th>
+                <th style="width:30px"></th>
+              </tr>
+            </thead>
+            <tbody id="costsBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="adv-item-totals">
+        <div class="adv-total-row">
+          <span>Total Cost (with markups):</span>
+          <strong id="advItemTotalCost">$0.00</strong>
+        </div>
+        <div class="adv-total-row">
+          <span>Calculated Bid Unit:</span>
+          <span id="advItemCalcBU">$0.00</span>
+        </div>
+        <div class="adv-total-row">
+          <label style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="advItemNoMarkup">
+            <span>No Markup (pass-through at cost)</span>
+          </label>
+        </div>
+        <div class="adv-total-row">
+          <label style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="advItemAlternate">
+            <span>Alternate (priced separately — not in base bid)</span>
+          </label>
+        </div>
+        <div class="adv-total-row" style="align-items:center">
+          <label>Override Bid Unit: $</label>
+          <input type="number" id="advItemBidOverride" placeholder="Leave blank = calculated" step="0.01" style="width:140px">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="advItemCancel" class="btn btn-sm btn-outline">Cancel</button>
+        <button id="advItemSave" class="btn btn-sm btn-primary">Save Item</button>
+      </div>
+    </div>
+  </div>
+
+<!-- New Bid Modal -->
+<div id="newBidModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="max-width:500px;">
+    <h3>Create New Bid</h3>
+    <div style="display:flex;flex-direction:column;gap:12px;margin:16px 0;">
+      <button id="newBidWizard" class="btn btn-primary" style="padding:16px;font-size:1.15em;background:#166534;">🧙 Septic Wizard — answer a few questions</button>
+      <div class="wizard-preset-row">
+        <button class="btn btn-outline wizard-preset" data-preset="sandfilter">4BR Sand Filter</button>
+        <button class="btn btn-outline wizard-preset" data-preset="atgrade">4BR At-Grade</button>
+        <button class="btn btn-outline wizard-preset" data-preset="peat">4BR Peat</button>
+      </div>
+      <button id="uploadPlansBtn" class="btn btn-outline" style="padding:12px;font-size:1em;border-color:#166534;color:#166534;">📄 Upload Plans — AI reads them &amp; builds the bid</button>
+      <button id="newBidBlank" class="btn btn-outline" style="padding:12px;font-size:1em;">📝 Blank Bid</button>
+      <input type="file" id="planFileInput" accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx,.txt" style="display:none">
+      <input type="file" id="planFileInput2" accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx,.txt" style="display:none">
+      <div id="templateListSection" style="display:none;">
+        <h4 style="margin:8px 0 6px;color:#555;">Or start from a template:</h4>
+        <div id="templatePickList" class="template-pick-list"></div>
+      </div>
+    </div>
+    <div style="text-align:right;"><button id="newBidModalCancel" class="btn btn-sm btn-outline">Cancel</button></div>
+  </div>
+</div>
+
+<!-- AI Copilot Modal (plan analysis) -->
+<div id="copilotModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box copilot-box">
+    <h3 style="margin:0 0 10px;">🤖 AI Bid Copilot</h3>
+    <div id="copilotBody"><!-- injected --></div>
+    <div class="modal-actions">
+      <button id="copilotClose" class="btn btn-sm btn-outline">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ask AI Modal (Q&A on a bid) -->
+<div id="askAiModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box copilot-box">
+    <h3 style="margin:0 0 10px;">🤖 Ask AI about this bid</h3>
+    <div id="askAiLog" class="askai-log"><!-- conversation --></div>
+    <div class="askai-input-row">
+      <textarea id="askAiInput" rows="2" placeholder="e.g. Did I forget anything for a pump system? Is 100' of pipe enough?"></textarea>
+      <button id="askAiSend" class="btn btn-primary">Send</button>
+    </div>
+    <div class="modal-actions">
+      <button id="askAiClose" class="btn btn-sm btn-outline">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Septic Wizard Modal -->
+<div id="wizardModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box wizard-box">
+    <div class="wizard-progress"><div id="wizardProgressBar"></div></div>
+    <div id="wizardStepBody"><!-- step content injected --></div>
+    <div class="modal-actions" style="justify-content:space-between;">
+      <button id="wizardBack" class="btn btn-outline" style="padding:12px 20px;font-size:1.05em;">← Back</button>
+      <button id="wizardCancel" class="btn btn-sm btn-outline">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Waterline Add-on Modal -->
+<div id="waterlineModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="max-width:420px;">
+    <h3>💧 Add Waterline</h3>
+    <div class="form-group">
+      <label>Pipe Size</label>
+      <div class="wizard-choice-row" id="waterlineSizeRow">
+        <button class="wizard-choice wl-size" data-size='3/4"'>3/4"</button>
+        <button class="wizard-choice wl-size selected" data-size='1"'>1"</button>
+        <button class="wizard-choice wl-size" data-size='1-1/2"'>1-1/2"</button>
+        <button class="wizard-choice wl-size" data-size='2"'>2"</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Distance — meter pit / well / curb stop to house (feet)</label>
+      <input type="number" id="waterlineLF" placeholder="e.g. 150" min="1" style="font-size:1.2em;padding:10px;">
+    </div>
+    <div class="modal-actions">
+      <button id="waterlineCancel" class="btn btn-sm btn-outline">Cancel</button>
+      <button id="waterlineAdd" class="btn btn-primary" style="padding:10px 24px;">Add to Bid</button>
+    </div>
+  </div>
+</div>
+
+<!-- Save as Template Modal -->
+<div id="saveTemplateModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="max-width:450px;">
+    <h3>💾 Save as Template</h3>
+    <div class="form-group">
+      <label>Template Name</label>
+      <input type="text" id="templateName" placeholder="e.g. 4BR Sand Filter">
+    </div>
+    <div class="form-group">
+      <label>Description (optional)</label>
+      <input type="text" id="templateDesc" placeholder="Standard 4-bedroom sand filter install">
+    </div>
+    <p style="font-size:0.85em;color:#666;">This will save all current line items as a reusable template. Others can pick it when creating a new bid.</p>
+    <div class="form-actions">
+      <button id="saveTemplateCancelBtn" class="btn btn-sm btn-outline">Cancel</button>
+      <button id="saveTemplateSaveBtn" class="btn btn-sm btn-primary">Save Template</button>
+    </div>
+  </div>
+</div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+
+  <!-- Send Back Modal -->
+  <div id="sendBackModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-content" style="max-width:500px">
+      <h3 style="margin-bottom:12px">📝 Send Back to Estimator</h3>
+      <p style="color:#666;margin-bottom:12px">Explain what needs to be changed or corrected:</p>
+      <textarea id="sendBackNotes" rows="4" style="width:100%;padding:10px;border:1px solid #cbd5e0;border-radius:6px;font-size:1rem;resize:vertical" placeholder="e.g., Need to add mobilization line item, check pipe pricing..."></textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-outline" onclick="$('sendBackModal').style.display='none'">Cancel</button>
+        <button class="btn" style="background:#dd6b20;color:white" onclick="confirmSendBack()">Send Back</button>
+      </div>
+    </div>
+  </div>
+
+<!-- Crew Composition Modal -->
+<div id="crewCompModal" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="max-width:520px;">
+    <h3 id="crewCompModalTitle">Add Crew Composition</h3>
+    <div class="form-group">
+      <label>Crew Name</label>
+      <input type="text" id="crewCompName" placeholder="e.g. 2-Man Crew">
+    </div>
+    <div class="form-group">
+      <label>Members</label>
+      <div id="crewCompMembers"></div>
+      <button id="crewCompAddMember" class="btn btn-sm btn-outline" style="margin-top:8px;">+ Add Member</button>
+    </div>
+    <div class="form-group">
+      <label>Combined Hourly Rate</label>
+      <div id="crewCompTotalRate" style="font-size:1.3em;font-weight:700;color:var(--primary);">$0.00/hr</div>
+    </div>
+    <div class="form-group">
+      <label>Equipment (optional)</label>
+      <div id="crewCompEquipment"></div>
+      <button id="crewCompAddEquip" class="btn btn-sm btn-outline" style="margin-top:8px;">+ Add Equipment</button>
+    </div>
+    <div class="form-group">
+      <label>Total Crew + Equipment Rate</label>
+      <div id="crewCompGrandRate" style="font-size:1.3em;font-weight:700;color:var(--success);">$0.00/hr</div>
+    </div>
+    <div class="modal-actions">
+      <button id="crewCompCancel" class="btn btn-sm btn-outline">Cancel</button>
+      <button id="crewCompSave" class="btn btn-sm btn-primary">Save Crew</button>
+    </div>
+  </div>
+</div>
+
+  <!-- Cost Summary Modal -->
+  <div id="costSummaryModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:700px;max-height:90vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 style="margin:0;">📊 Bid Cost Summary</h3>
+        <button id="costSummaryClose" class="btn btn-sm btn-outline">&times; Close</button>
+      </div>
+      <div id="costSummaryContent"></div>
+    </div>
+  </div>
+  <!-- Catalog Import Modal -->
+  <div id="catalogImportModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-box" style="max-width:600px;">
+      <h3>📥 Import Catalog Items</h3>
+      <p id="catalogImportCount" style="margin:8px 0;color:#555;"></p>
+      <div style="margin:12px 0;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;">
+          <input type="radio" name="importMode" value="update" checked> <strong>Update existing</strong> (match by description, update prices/vendors, add new)
+          <br>
+          <input type="radio" name="importMode" value="add"> Add all as new items
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="radio" name="importMode" value="replace"> Replace entire catalog
+        </label>
+      </div>
+      <div id="catalogImportPreview" class="cat-import-preview"></div>
+      <div class="modal-actions">
+        <button id="catalogImportCancel" class="btn btn-sm btn-outline">Cancel</button>
+        <button id="catalogImportConfirm" class="btn btn-sm btn-primary">Import</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Proposal Item Settings Modal -->
+  <div id="proposalItemModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width:380px;">
+      <h3>📋 Proposal Display</h3>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="piShowOnProposal" checked>
+          <span>Include on Proposal</span>
+        </label>
+        <div style="font-size:0.8rem;color:#64748b;margin-left:28px;">Unchecked = hidden line (cost still in total)</div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label style="font-weight:600;margin-bottom:4px;display:block;">Proposal Group</label>
+        <select id="piGroupSelect" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;">
+          <option value="">(No group — show individually)</option>
+          <option value="__new__">+ New Group...</option>
+        </select>
+        <input type="text" id="piNewGroup" placeholder="Enter group name..." style="display:none;width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;margin-top:6px;">
+        <div style="font-size:0.8rem;color:#64748b;margin-top:2px;">Items with the same group appear as one combined line</div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="piShowUnitPrice">
+          <span>Show Unit Price on Proposal</span>
+        </label>
+        <div style="font-size:0.8rem;color:#64748b;margin-left:28px;">Shows qty × price per unit (for variable-qty items)</div>
+      </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label style="font-weight:600;margin-bottom:4px;display:block;">Proposal Price Override</label>
+        <input type="number" id="piPriceOverride" placeholder="Leave blank to use calculated price" step="0.01" min="0" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;">
+        <div style="font-size:0.8rem;color:#64748b;margin-top:2px;">Override the displayed price on the proposal (e.g., round to even number)</div>
+      </div>
+      <div class="modal-actions">
+        <button id="piCancel" class="btn btn-sm btn-outline">Cancel</button>
+        <button id="piSave" class="btn btn-sm btn-primary">Apply</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
+<!-- deploy 1783964280 -->

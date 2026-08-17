@@ -1,0 +1,40 @@
+@import "tailwindcss";
+@plugin "daisyui" { themes: "rdmpe" }
+@plugin "@tailwindcss/typography";
+
+/* RDMPE brand theme — navy/gold, matching the Bid Builder module and logo so
+   both halves of the unified app read as one product. */
+@plugin "daisyui/theme" {
+  name: "rdmpe";
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+  --color-base-100: #ffffff;
+  --color-base-200: #f0f2f5;
+  --color-base-300: #e2e8f0;
+  --color-base-content: #1a202c;
+  --color-primary: #1a365d;
+  --color-primary-content: #ffffff;
+  --color-secondary: #d4a843;
+  --color-secondary-content: #1a365d;
+  --color-accent: #276749;
+  --color-accent-content: #ffffff;
+  --color-neutral: #1a202c;
+  --color-neutral-content: #f0f2f5;
+  --color-info: #2563eb;
+  --color-info-content: #ffffff;
+  --color-success: #276749;
+  --color-success-content: #ffffff;
+  --color-warning: #c49a35;
+  --color-warning-content: #1a202c;
+  --color-error: #c53030;
+  --color-error-content: #ffffff;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.75rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}
