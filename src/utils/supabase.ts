@@ -146,10 +146,15 @@ export async function getAllTimeEntries(users: User[]): Promise<TimeEntry[]> {
   const lists = await Promise.all(users.map(u => getTimeEntriesForUser(u.id)));
   return lists.flat();
 }
-// Currently-open clock sessions (clocked in, not yet clocked out) across all users
+// Currently-open clock sessions (clocked in, not yet clocked out) across all users.
+// Live sessions are tracked via is_active + clock_in_time (see TimeEntryForm) — NOT
+// the legacy clock_in/clock_out string fields, which are only ever set once a shift
+// is closed out.
 export async function getActiveClockSessions(users: User[]): Promise<TimeEntry[]> {
   const all = await getAllTimeEntries(users);
-  return all.filter(e => !!e.clock_in && !e.clock_out);
+  return all
+    .filter(e => e.is_active && !!e.clock_in_time)
+    .sort((a, b) => (b.clock_in_time || '').localeCompare(a.clock_in_time || ''));
 }
 // One-time migration of the legacy global file into per-user files (idempotent, no-op when empty)
 export async function migrateTimeEntries(): Promise<void> {

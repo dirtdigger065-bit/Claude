@@ -174,7 +174,7 @@ export default function App() {
       <div className="flex-1 min-h-0">
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Hub currentUser={currentUser} onLogout={handleLogout} />} />
+            <Route path="/" element={<Hub currentUser={currentUser} users={users} onLogout={handleLogout} />} />
             <Route
               path="/field-ops"
               element={

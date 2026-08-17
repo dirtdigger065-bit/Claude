@@ -3,13 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { HardHat, Calculator, LogOut, Briefcase, FileText, ArrowRight, ClipboardCheck } from 'lucide-react';
 import { User } from '../types';
 import { getJobs, fetchAllBids } from '../utils/supabase';
+import { AdminStats } from './AdminStats';
 
 interface Props {
   currentUser: User;
+  users: User[];
   onLogout: () => void;
 }
 
-export const Hub: React.FC<Props> = ({ currentUser, onLogout }) => {
+export const Hub: React.FC<Props> = ({ currentUser, users, onLogout }) => {
   const navigate = useNavigate();
   const [activeJobs, setActiveJobs] = useState<number | null>(null);
   const [openBids, setOpenBids] = useState<number | null>(null);
@@ -40,11 +42,15 @@ export const Hub: React.FC<Props> = ({ currentUser, onLogout }) => {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
-        <div className="text-center mb-8">
+      <div className="flex-1 flex flex-col items-center p-6 overflow-y-auto">
+        <div className="text-center mb-6 mt-2">
           <h1 className="text-2xl font-bold">Welcome back, {currentUser.name}</h1>
-          <p className="text-base-content/60 mt-1">Pick where you want to go</p>
+          <p className="text-base-content/60 mt-1">
+            {currentUser.role === 'admin' ? "Here's what's happening right now" : 'Pick where you want to go'}
+          </p>
         </div>
+
+        {currentUser.role === 'admin' && <AdminStats users={users} />}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 w-full max-w-2xl">
           <button
