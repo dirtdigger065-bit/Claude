@@ -101,7 +101,7 @@ export const LoginScreen: React.FC<Props> = ({ onLogin, joinCode }) => {
   // Success screen after sign-up
   if (createdUser) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-base-100 p-6">
+      <div className="flex flex-col items-center justify-center h-full bg-base-100 p-6 overflow-y-auto">
         <div className="text-center max-w-sm">
           <CheckCircle size={64} className="mx-auto text-success mb-4" />
           <h1 className="text-2xl font-bold mb-2">Welcome, {createdUser.name}! 🎉</h1>
@@ -139,7 +139,7 @@ export const LoginScreen: React.FC<Props> = ({ onLogin, joinCode }) => {
   // Sign-up form
   if (isSignUp) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-base-100 p-6">
+      <div className="flex flex-col items-center justify-center h-full bg-base-100 p-6 overflow-y-auto">
         <div className="text-center mb-6">
           <HardHat size={48} className="mx-auto text-primary mb-3" />
           <h1 className="text-2xl font-bold">Join RDMPE Ops</h1>
@@ -207,7 +207,7 @@ export const LoginScreen: React.FC<Props> = ({ onLogin, joinCode }) => {
 
   // Normal PIN login
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-base-100 p-6">
+    <div className="flex flex-col items-center justify-center h-full bg-base-100 p-6 overflow-y-auto">
       <div className="text-center mb-8">
         <HardHat size={48} className="mx-auto text-primary mb-3" />
         <h1 className="text-2xl font-bold">RDMPE Ops</h1>

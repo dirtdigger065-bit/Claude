@@ -23,27 +23,71 @@ const headers = {
   'Authorization': `Bearer ${SUPA_KEY}`,
 };
 
+// ---- Connection status ----
+// A shared signal so the app can show one honest "can't reach the server"
+// banner instead of every individual screen quietly rendering as if there's
+// simply no data. Read/write helpers report through this; App.tsx listens.
+export const connectionEvents = new EventTarget();
+function reportFailure(context: string, err: unknown) {
+  connectionEvents.dispatchEvent(new CustomEvent('failure', { detail: { context, err } }));
+}
+function reportSuccess() {
+  connectionEvents.dispatchEvent(new Event('success'));
+}
+
+// Thrown for a real failure (network unreachable, bad/missing key, RLS
+// misconfigured, server error) — distinct from "the file legitimately
+// doesn't exist yet" (404), which callers correctly treat as an empty list.
+export class SupabaseUnavailableError extends Error {
+  constructor(context: string, cause?: unknown) {
+    super(`Couldn't reach the server (${context}).`);
+    this.name = 'SupabaseUnavailableError';
+    if (cause) (this as any).cause = cause;
+  }
+}
+
 // ---- Generic JSON file CRUD ----
 // Reads append a cache-busting query param so the storage CDN can never serve
 // a stale copy (this is what previously allowed duplicate job numbers to slip in).
+//
+// IMPORTANT: both helpers used to swallow every failure (network down, bad
+// key, RLS misconfigured, 5xx) and quietly return "no data" / false. That
+// made a real outage indistinguishable from "there's nothing here yet" —
+// e.g. the login screen would say "Invalid PIN" during an actual outage, and
+// a failed clock-in save would still show a success toast because nothing
+// ever checked the (silently false) return value. They now throw on a real
+// failure so the error handling already written throughout the app (and
+// there's a lot of it) actually runs.
 
 async function readJsonFile<T>(filename: string): Promise<T[]> {
+  let res: Response;
   try {
-    const res = await fetch(
+    res = await fetch(
       `${SUPA_URL}/storage/v1/object/${BUCKET}/${filename}?cb=${Date.now()}`,
       { headers: { ...headers, 'cache-control': 'no-cache' }, cache: 'no-store' }
     );
-    if (!res.ok) return [];
+  } catch (err) {
+    reportFailure(`reading ${filename}`, err);
+    throw new SupabaseUnavailableError(`reading ${filename}`, err);
+  }
+  if (res.status === 404) return []; // legitimately no data yet — not a failure
+  if (!res.ok) {
+    reportFailure(`reading ${filename}`, res.status);
+    throw new SupabaseUnavailableError(`reading ${filename} (HTTP ${res.status})`);
+  }
+  try {
     const data = await res.json();
+    reportSuccess();
     return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
+  } catch (err) {
+    reportFailure(`reading ${filename}`, err);
+    throw new SupabaseUnavailableError(`reading ${filename} (bad response)`, err);
   }
 }
 
 async function writeJsonFile<T>(filename: string, data: T[]): Promise<boolean> {
+  const body = JSON.stringify(data, null, 2);
   try {
-    const body = JSON.stringify(data, null, 2);
     const res = await fetch(
       `${SUPA_URL}/storage/v1/object/${BUCKET}/${filename}`,
       {
@@ -52,7 +96,7 @@ async function writeJsonFile<T>(filename: string, data: T[]): Promise<boolean> {
         body,
       }
     );
-    if (res.ok) return true;
+    if (res.ok) { reportSuccess(); return true; }
     if (res.status === 404 || res.status === 400) {
       const createRes = await fetch(
         `${SUPA_URL}/storage/v1/object/${BUCKET}/${filename}`,
@@ -62,11 +106,16 @@ async function writeJsonFile<T>(filename: string, data: T[]): Promise<boolean> {
           body,
         }
       );
-      return createRes.ok;
+      if (createRes.ok) { reportSuccess(); return true; }
+      reportFailure(`saving ${filename}`, createRes.status);
+      throw new SupabaseUnavailableError(`saving ${filename} (HTTP ${createRes.status})`);
     }
-    return false;
-  } catch {
-    return false;
+    reportFailure(`saving ${filename}`, res.status);
+    throw new SupabaseUnavailableError(`saving ${filename} (HTTP ${res.status})`);
+  } catch (err) {
+    if (err instanceof SupabaseUnavailableError) throw err;
+    reportFailure(`saving ${filename}`, err);
+    throw new SupabaseUnavailableError(`saving ${filename}`, err);
   }
 }
 

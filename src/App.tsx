@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { User } from './types';
-import { getUsers, ensureDefaultAdmin } from './utils/supabase';
+import { getUsers, ensureDefaultAdmin, connectionEvents } from './utils/supabase';
 import { LoginScreen } from './components/LoginScreen';
 import { TVDashboard } from './components/TVDashboard';
 import FieldOpsApp from './modules/field-ops/FieldOpsApp';
 import { Hub } from './shell/Hub';
 import { BidBuilderFrame } from './shell/BidBuilderFrame';
-import { Download, X, Share2 } from 'lucide-react';
+import { Download, X, Share2, WifiOff } from 'lucide-react';
 
 const SESSION_KEY = 'rdmpe-session-uid';
 
@@ -45,6 +45,24 @@ export default function App() {
 
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
+
+  // Global "can't reach the server" signal — surfaced whenever any read or
+  // write to Supabase fails for a real reason (network down, bad key, RLS
+  // misconfigured, server error), not just "there's no data." Without this,
+  // a screen mid-outage looks identical to a screen that's legitimately
+  // empty, and a failed save can look like it succeeded.
+  const [connectionIssue, setConnectionIssue] = useState(false);
+
+  useEffect(() => {
+    const onFailure = () => setConnectionIssue(true);
+    const onSuccess = () => setConnectionIssue(false);
+    connectionEvents.addEventListener('failure', onFailure);
+    connectionEvents.addEventListener('success', onSuccess);
+    return () => {
+      connectionEvents.removeEventListener('failure', onFailure);
+      connectionEvents.removeEventListener('success', onSuccess);
+    };
+  }, []);
 
   const loadUsers = useCallback(async () => {
     if (isTvMode) return;
@@ -127,19 +145,36 @@ export default function App() {
     return <TVDashboard />;
   }
 
+  const connectionBanner = connectionIssue ? (
+    <div className="bg-error text-error-content px-4 py-2 flex items-center gap-2 text-sm z-[300] shrink-0">
+      <WifiOff size={16} />
+      <span>Can't reach the server right now — check your connection. Anything you do may not be saved until it's back.</span>
+    </div>
+  ) : null;
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <span className="loading loading-spinner loading-lg text-primary" />
-          <p className="mt-2 text-sm text-base-content/60">Loading RDMPE Ops...</p>
+      <div className="flex flex-col h-screen">
+        {connectionBanner}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <span className="loading loading-spinner loading-lg text-primary" />
+            <p className="mt-2 text-sm text-base-content/60">Loading RDMPE Ops...</p>
+          </div>
         </div>
       </div>
     );
   }
 
   if (!currentUser) {
-    return <LoginScreen onLogin={handleLogin} joinCode={joinCode} />;
+    return (
+      <div className="flex flex-col h-screen">
+        {connectionBanner}
+        <div className="flex-1 min-h-0">
+          <LoginScreen onLogin={handleLogin} joinCode={joinCode} />
+        </div>
+      </div>
+    );
   }
 
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -147,6 +182,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-base-100">
+      {connectionBanner}
       {showInstallBanner && !isStandalone && (
         <div className="bg-blue-600 text-white px-4 py-3 flex items-center gap-3 z-[200]">
           <div className="flex-1">
