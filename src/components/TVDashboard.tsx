@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { Job, ScheduleEntry, TimeEntry, WeatherData, Announcement, SafetyTopic, DailyForecast } from '../types';
-import { getJobs, getSchedule, getTimeEntries, getAnnouncements, getSafetyTopics, fetchWeather, centralDate } from '../utils/supabase';
+import { getJobs, getSchedule, getUsers, getAllTimeEntries, getAnnouncements, getSafetyTopics, fetchWeather, centralDate } from '../utils/supabase';
 
 const TV_TOKEN = 'rdmpe2026';
 const PANEL_DURATION = 20;
@@ -160,7 +160,11 @@ export function TVDashboard() {
 
   const loadData = useCallback(async () => {
     try {
-      const [j, s, te, ann, st] = await Promise.all([getJobs(), getSchedule(), getTimeEntries(), getAnnouncements(), getSafetyTopics()]);
+      const [j, s, users, ann, st] = await Promise.all([getJobs(), getSchedule(), getUsers(), getAnnouncements(), getSafetyTopics()]);
+      // getTimeEntries() reads the old global time-entries.json, which stays
+      // permanently empty once per-user time-entry files are in use — see
+      // migrateTimeEntries() in utils/supabase.ts.
+      const te = await getAllTimeEntries(users);
       setJobs(j);
       setSchedule(s);
       setTimeEntries(te);

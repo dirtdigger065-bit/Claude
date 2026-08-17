@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Briefcase, Clock, ClipboardList, AlertTriangle, TrendingUp, FileText, DollarSign } from 'lucide-react';
 import { Job, DailyLog, TimeEntry, MaterialEntry, User, LaborItem } from '../types';
-import { normalizeStatus, isNonJobEntry } from '../types';
-import { getDailyLogs, getTimeEntries, getMaterials, getActiveClockSessions, today } from '../utils/supabase';
+import { normalizeStatus, isNonJobEntry, getPayPeriodStart, getPayPeriodDates } from '../types';
+import { getDailyLogs, getAllTimeEntries, getMaterials, getActiveClockSessions, today } from '../utils/supabase';
 
 interface Props {
   jobs: Job[];
@@ -47,7 +47,10 @@ export const Dashboard: React.FC<Props> = ({ jobs, users, currentUser, onSelectJ
   }, [activeSessions]);
 
   const loadData = async () => {
-    const [l, t, m, active] = await Promise.all([getDailyLogs(), getTimeEntries(), getMaterials(), getActiveClockSessions(users)]);
+    // Per-user files are the real source of truth (see utils/supabase.ts) — the
+    // old global time-entries.json is only ever a one-time migration snapshot
+    // and stays empty afterward, so every stat here needs getAllTimeEntries.
+    const [l, t, m, active] = await Promise.all([getDailyLogs(), getAllTimeEntries(users), getMaterials(), getActiveClockSessions(users)]);
     setLogs(l);
     setTimeEntries(t);
     setMaterials(m);
@@ -79,6 +82,24 @@ export const Dashboard: React.FC<Props> = ({ jobs, users, currentUser, onSelectJ
   // Non-job hours
   const nonJobEntries = timeEntries.filter(e => isNonJobEntry(e));
   const nonJobHours = nonJobEntries.reduce((s, e) => s + (Number(e.hours) || 0), 0);
+
+  // Live "this week" hours — includes elapsed time from anyone still clocked in,
+  // not just finalized entries, so it matches the Hub's running stats.
+  const weekDates = getPayPeriodDates(getPayPeriodStart(new Date()));
+  const activeElapsedByEntry: Record<string, number> = {};
+  activeSessions.forEach(s => { activeElapsedByEntry[s.id] = (sessionElapsed[s.id] || 0) / 3600; });
+  const hoursTodayLive = timeEntries.filter(e => e.date === todayStr).reduce((s, e) => s + (Number(e.hours) || 0), 0)
+    + activeSessions.filter(s => s.date === todayStr).reduce((s, e) => s + (activeElapsedByEntry[e.id] || 0), 0);
+  const hoursWeekLive = timeEntries.filter(e => weekDates.includes(e.date)).reduce((s, e) => s + (Number(e.hours) || 0), 0)
+    + activeSessions.filter(s => weekDates.includes(s.date)).reduce((s, e) => s + (activeElapsedByEntry[e.id] || 0), 0);
+  const weekHoursByUser: Record<string, number> = {};
+  timeEntries.filter(e => weekDates.includes(e.date) && new Date(e.date + 'T12:00:00').getDay() !== 0).forEach(e => {
+    weekHoursByUser[e.user_id] = (weekHoursByUser[e.user_id] || 0) + (Number(e.hours) || 0);
+  });
+  activeSessions.filter(s => weekDates.includes(s.date) && new Date(s.date + 'T12:00:00').getDay() !== 0).forEach(s => {
+    weekHoursByUser[s.user_id] = (weekHoursByUser[s.user_id] || 0) + (activeElapsedByEntry[s.id] || 0);
+  });
+  const overtimeThisWeek = Object.values(weekHoursByUser).reduce((s, h) => s + Math.max(0, h - 40), 0);
 
   // Hours by job for top consumers
   const hoursByJob: Record<string, { approved: number; estimated: number; jobNumber: string; client: string }> = {};
@@ -127,8 +148,25 @@ export const Dashboard: React.FC<Props> = ({ jobs, users, currentUser, onSelectJ
             <div className="stat-value text-2xl">{pendingApprovals.length}</div>
           </div>
           <div className="stat bg-base-200 rounded-lg p-3">
+            <div className="stat-figure text-primary"><Clock size={24} /></div>
+            <div className="stat-title text-xs">Hours Today</div>
+            <div className="stat-value text-2xl">{hoursTodayLive.toFixed(1)}</div>
+          </div>
+          <div className="stat bg-base-200 rounded-lg p-3">
+            <div className="stat-figure text-info"><TrendingUp size={24} /></div>
+            <div className="stat-title text-xs">Hours This Week</div>
+            <div className="stat-value text-2xl">{hoursWeekLive.toFixed(1)}</div>
+          </div>
+          {overtimeThisWeek > 0 && (
+            <div className="stat bg-error/10 rounded-lg p-3">
+              <div className="stat-figure text-error"><AlertTriangle size={24} /></div>
+              <div className="stat-title text-xs">Overtime This Week</div>
+              <div className="stat-value text-2xl text-error">{overtimeThisWeek.toFixed(1)}</div>
+            </div>
+          )}
+          <div className="stat bg-base-200 rounded-lg p-3">
             <div className="stat-figure text-success"><TrendingUp size={24} /></div>
-            <div className="stat-title text-xs">Total Hours</div>
+            <div className="stat-title text-xs">Total Hours (All-Time, Approved)</div>
             <div className="stat-value text-2xl">{totalApprovedHours.toFixed(0)}</div>
             {totalEstimatedHours > 0 && (
               <div className="stat-desc text-xs">of {totalEstimatedHours}h estimated</div>
@@ -169,7 +207,7 @@ export const Dashboard: React.FC<Props> = ({ jobs, users, currentUser, onSelectJ
                     <div className="text-right">
                       <div className="font-mono font-bold text-success tabular-nums">{formatTimer(elapsed)}</div>
                       <div className="text-[10px] text-base-content/40">
-                        since {session.clock_in || ''}
+                        {session.clock_in_time && `since ${new Date(session.clock_in_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`}
                         {session.clock_in_location && ' 📍'}
                       </div>
                     </div>

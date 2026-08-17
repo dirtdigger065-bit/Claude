@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Plus, X, GripVertical, Clock, Calendar, Users, ArrowRight } from 'lucide-react';
 import { type Job, type ScheduleEntry, type User, type LaborItem, type TimeEntry } from '../types';
 import { SCHEDULE_COLORS, normalizeStatus } from '../types';
-import { genId, now, getSchedule, saveSchedule, getTimeEntries, getTimeOffRequests, centralDate } from '../utils/supabase';
+import { genId, now, getSchedule, saveSchedule, getAllTimeEntries, getTimeOffRequests, centralDate } from '../utils/supabase';
 import { TimeOffRequest } from '../types';
 
 interface Props {
@@ -72,7 +72,10 @@ export const Schedule: React.FC<Props> = ({ jobs, users, currentUser, onSelectJo
 
   const loadData = async () => {
     setLoading(false);
-    const [s, t, tor] = await Promise.all([getSchedule(), getTimeEntries(), getTimeOffRequests()]);
+    // getTimeEntries() reads the old global time-entries.json, which stays
+    // permanently empty once per-user time-entry files are in use — see
+    // migrateTimeEntries() in utils/supabase.ts. Bid-vs-actual needs the real data.
+    const [s, t, tor] = await Promise.all([getSchedule(), getAllTimeEntries(users), getTimeOffRequests()]);
     setEntries(s);
     setTimeEntries(t);
     setTimeOffRequests(tor.filter(r => r.status === 'approved'));

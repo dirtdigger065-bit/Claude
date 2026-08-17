@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { ArrowLeft, Save, Trash2, Pencil, Copy, Search, X, AlertTriangle, ChevronLeft, ChevronRight, Plus, Star, Clock, Users, MapPin, Wrench, Play, Square, ArrowRightLeft, Check, ClipboardList } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { ArrowLeft, Save, Trash2, Pencil, Copy, Search, X, AlertTriangle, ChevronLeft, ChevronRight, Star, Users, MapPin, Wrench, Play, Square, ArrowRightLeft, Check, ClipboardList } from 'lucide-react';
 import type { Job, TimeEntry, User, Equipment } from '../types';
 import {
   NON_JOB_CATEGORIES, getEntryLabel, isNonJobEntry, normalizeStatus,
@@ -517,7 +517,11 @@ export const TimeEntryForm: React.FC<Props> = ({ jobs, currentUser, users, prese
       setBatchSelectedUsers([]);
       setBatchJobId('');
       setBatchCategory('');
-      showSuccess(`👥 Clocked in ${batchSelectedUsers.length} crew members!`);
+      showSuccess(
+        catInfo
+          ? `👥 Clocked in ${batchSelectedUsers.length} crew members — ${catInfo.icon} ${catInfo.label}`
+          : `👥 Clocked in ${batchSelectedUsers.length} crew members!`
+      );
       await loadEntries();
       onSaved();
     } catch (err) {
@@ -721,7 +725,11 @@ export const TimeEntryForm: React.FC<Props> = ({ jobs, currentUser, users, prese
         savedIds.push(user.id);
       }
       setTsSaved(prev => [...prev, ...savedIds]);
-      showSuccess(`✅ Saved ${usersToSave.length} entries!`);
+      showSuccess(
+        catInfo
+          ? `✅ Saved ${usersToSave.length} entries — ${catInfo.icon} ${catInfo.label}`
+          : `✅ Saved ${usersToSave.length} entries!`
+      );
       // Clear hours for saved users but keep the form open for more
       const clearedHours = { ...tsHours };
       const clearedNotes = { ...tsNotes };
@@ -779,11 +787,6 @@ export const TimeEntryForm: React.FC<Props> = ({ jobs, currentUser, users, prese
     const j = jobs.find(j => j.id === jobId);
     return j ? j.job_number : (jobId ? 'Unknown' : 'No Job');
   };
-  const jobFull = (jobId: string) => {
-    const j = jobs.find(j => j.id === jobId);
-    return j ? `${j.job_number} — ${j.client_name}` : '';
-  };
-
   const statusBadge = (status: string) => {
     const s = normalizeStatus(status);
     if (s === 'admin-approved') return <span className="badge badge-success badge-xs">✓</span>;
@@ -794,7 +797,6 @@ export const TimeEntryForm: React.FC<Props> = ({ jobs, currentUser, users, prese
   // Active entry job info
   const activeJob = activeEntry ? jobs.find(j => j.id === activeEntry.job_id) : null;
   const isClockedIn = activeEntry?.is_active === true;
-  const isViewingSelf = entryUserId === currentUser.id || entryUserId === activeEntry?.user_id;
 
   return (
     <div className={`flex flex-col ${embedded ? '' : 'h-full'}`}>

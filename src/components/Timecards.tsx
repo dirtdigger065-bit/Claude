@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Calendar, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, RefreshCw, FileText, Users, AlertTriangle, MessageSquare, DollarSign, TrendingUp, BarChart3, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, RefreshCw, Users, AlertTriangle, DollarSign, TrendingUp, BarChart3, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Job, TimeEntry, User, Holiday } from '../types';
 import {
-  NON_JOB_CATEGORIES, normalizeStatus, getEntryLabel, isNonJobEntry, getCategoryLabel,
-  getPayPeriodStart, getPayPeriodEnd, getPayPeriodDates, formatDateShort, getDayName,
+  normalizeStatus, getEntryLabel, isNonJobEntry, getCategoryLabel,
+  getPayPeriodStart, getPayPeriodDates, formatDateShort, getDayName,
 } from '../types';
 import { getAllTimeEntries, getTimeEntriesForUser, saveTimeEntriesForUser, getHolidays, now, today } from '../utils/supabase';
 import { TimeEntryForm } from './TimeEntryForm';
@@ -84,10 +84,8 @@ export const Timecards: React.FC<Props> = ({ jobs, users, currentUser, onSaved }
   const isAdmin = currentUser.role === 'admin';
   const isForeman = currentUser.role === 'foreman';
   const isPayroll = currentUser.role === 'payroll';
-  const isOffice = currentUser.role === 'office';
   const canApprove = isAdmin || isForeman;
   const canSeePay = isAdmin; // Only Ryan sees pay rates
-  const canFinalApprove = isAdmin; // Only admin does final approval
 
   useEffect(() => { loadEntries(); }, []);
 
@@ -101,7 +99,6 @@ export const Timecards: React.FC<Props> = ({ jobs, users, currentUser, onSaved }
     setLoading(false);
   };
 
-  const weekEnd = getPayPeriodEnd(weekStart);
   const weekDates = getPayPeriodDates(weekStart);
   const weekLabel = formatDateShort(weekDates[0]) + ' – ' + formatDateShort(weekDates[6]);
 
@@ -196,7 +193,6 @@ export const Timecards: React.FC<Props> = ({ jobs, users, currentUser, onSaved }
   const grandSunday = employeesWithHours.reduce((s, ew) => s + ew.sundayHours, 0);
   const grandRegular = employeesWithHours.reduce((s, ew) => s + ew.regularHours, 0);
   const grandCost = employeesWithHours.reduce((s, ew) => s + ew.grossPay, 0);
-  const pendingTotal = employeesWithHours.reduce((s, ew) => s + ew.pendingCount, 0);
   const approvedTotal = employeesWithHours.reduce((s, ew) => s + ew.approvedCount, 0);
   const entryTotal = employeesWithHours.reduce((s, ew) => s + ew.totalCount, 0);
   const unassignedTotal = employeesWithHours.reduce((s, ew) => s + ew.unassignedCount, 0);
@@ -408,12 +404,6 @@ export const Timecards: React.FC<Props> = ({ jobs, users, currentUser, onSaved }
   }).sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at));
 
   const unapprovedWeekCount = unapprovedEntries.filter(e => weekDates.includes(e.date)).length;
-
-  // All entries not yet final-approved (for dashboard counts)
-  const notFinalApproved = entries.filter(e => {
-    const s = normalizeStatus(e.status);
-    return s === 'pending' || s === 'foreman-approved';
-  });
 
   const getStatusBadge = (status: string) => {
     const s = normalizeStatus(status);
